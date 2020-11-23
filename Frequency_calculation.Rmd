@@ -1,0 +1,51 @@
+---
+title: "Markdown for frequency calculation"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Loading Libraries
+
+```{r library loading, message=FALSE, warning=FALSE}
+library(reshape2)
+library(ggplot2)
+library(dada2)
+library(ShortRead)
+```
+
+##Reading in the chimera free sequence table for the DADA2 analyzed Staggered A library. 
+
+At this step, after reading in the sequence table, input the mock fasta sequence and identifying which of the sequence as identified in DADA2 is an exact match to the mock ITS fasta sequence using the hamming distances.
+
+```{r read RDS, message=TRUE, warning=FALSE}
+seqtab.nochim.StagA.dada2<-readRDS("/media/sridhar/Storage/Amplicon_sequencing_library_1/cutadapt/Staggered_A/seqtab.nochim.rds")
+StagA.seq<-getSequences(seqtab.nochim.StagA.dada2)
+mock.ITS.seq<-as.character(sread(readFasta("/media/sridhar/Storage/Amplicon_sequencing_library_1/mock_fasta_ITS1.fasta")))
+hamming.StagA<-lapply(StagA.seq,nwhamming,mock.ITS.seq)
+```
+
+Based on the hamming distances values, removing the last 4 sequences from the sequence table which are not an exact match to the mock fasta sequences.
+
+```{r removing row, message=TRUE,warning=FALSE}
+seqtab.nochim.StagA.dada2<-seqtab.nochim.StagA.dada2[,-c(15:18)]
+dim(seqtab.nochim.StagA.dada2)
+seqtab.nochim.StagA.dada2.df<-as.data.frame(seqtab.nochim.StagA.dada2) ##Assigning the matrix as dataframe
+seqtab.nochim.stagA.dada2.freq<- apply(seqtab.nochim.StagA.dada2.df, 1, function(i) i/sum(i)) ##Calculating the frequency per sample
+seqtab.nochim.stagA.dada2.freq.df<-as.data.frame(seqtab.nochim.stagA.dada2.freq)
+colSums(seqtab.nochim.stagA.dada2.freq.df) ##Checking the ratios sum to be 1
+names<-readRDS("/media/sridhar/Storage/Amplicon_sequencing_library_1/names.finalseq.dada2.StagA.rds") ## Reading in the names for the final sequences of Staggered A
+seqtab.nochim.stagA.dada2.freq.df$Names<-names
+row.names(seqtab.nochim.stagA.dada2.freq.df)<-NULL 
+df.melt <- melt(seqtab.nochim.stagA.dada2.freq.df,  id.vars = 'Names', variable.name = 'Samples') 
+```
+
+##Plotting the final frequency 
+```{r plotting graph, message=TRUE, warning=FALSE}
+theme_set(theme_bw())
+ggplot(df.melt, aes(x=Names,y=value,ymin=0, ymax=0.6)) + geom_point(aes(colour = Samples))+theme(axis.text.x = element_text(size = 9.5, face = "italic",angle = 55,hjust = 1))+xlab("Species")+ylab("Frequency")
+```
+
+
